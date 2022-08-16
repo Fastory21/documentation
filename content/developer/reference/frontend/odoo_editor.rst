@@ -6,12 +6,6 @@ Odoo Editor is Odoo's own rich text editor. Its sources can be found in the
 `odoo-editor directory
 <{GITHUB_PATH}/addons/web_editor/static/src/js/editor/odoo-editor>`_.
 
-Tests
-=====
-
-The editor comes with its own series of unit tests that can be seen at the route
-*/web_editor/tests*.
-
 Powerbox
 ========
 
@@ -21,93 +15,209 @@ navigated with the arrow keys.
 
 .. image:: editor/powerbox.png
 
-Instantiation
--------------
+Modifying the Powerbox
+----------------------
 
-:file:`OdooEditor.js` instantiates the Powerbox in its own constructor and stores it
-in its `powerbox` instance variable.
+Only one Powerbox should be instantiated at the time, and that job is done by
+the editor itself. Its Powerbox instance can be found in its `powerbox` instance
+variable.
+To change the Powerbox's contents and options, you will need to change the
+options passed to the editor before it gets instantiated.
 
-Odoo Editor passes it a set of default commands and categories, along with any
-Powerbox options passed to the editor (see :file:`OdooEditor.js`'s
-`_createPowerbox` method).
+.. important::
+   Never instantiate the Powerbox yourself, always use the current editor's own
+   instance instead.
 
-Options
--------
+Example: adding a category and a command
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The following options can be passed to OdooEditor, that will then be passed to
-the instance of the Powerbox:
+Say we want to add a new command `Document` to the Powerbox, just for the
+`mass_mailing` module. We want to add it to a new category called
+`Documentation` and we want it all the way at the top of the Powerbox.
 
-- `commands`: an *array of commands* to add to the default defined by the editor
-  (more details on commands below).
-- `categories`: an *array of categories* to add to the default defined by the
-  editor (more details on commands below).
-- `powerboxFilters`: an *array of functions* (*commands => commands*) used to
-  filter commands displayed in the Powerbox (more details on filters below).
-- `getContextFromParentRect`: a *function* that returns the `DOMRect` of an
-  ancestor of the editor. Can be useful when the editor is in an iframe.
+`mass_mailing` `extends
+<{GITHUB_PATH}/addons/mass_mailing/static/src/js/wysiwyg.js>`_
+`web_editor`'s `Wysiwyg class
+<{GITHUB_PATH}/addons/web_editor/static/src/js/wysiwyg/wysiwyg.js>`_, which
+instantiates the editor in its `start` method. Before doing so, it
+calls its own `_getPowerboxOptions` method, which can conveniently be overridden
+to add our new commands.
 
-Commands
---------
+Since `mass_mailing` already overrides `_getPowerboxOptions`, let's just add our
+new command to it:
 
-A command is the basic building block of the Powerbox. It's an object with the
-following keys:
+.. code-block:: javascript
 
-- `category`: a *string* pointing to the name of the category the command
-  belongs to.
-- `priority`: a *number* used to order the command. A command with a higher
-  priority is displayed higher into the Powerbox. Commands with the same
-  category are ordered alphabetically.
-- `name`: a *string* to name the command.
-- `description`: a *string* to describe the command.
-- `fontawesome`: a *string* containing the fontawesome class name to the
-  command's icon.
-- `callback`: a *function* (*() => void*) to execute when the command is picked.
-  Can be asynchronous.
-- `isDisabled`: an *optional function* (*() => boolean*) used to disable the
-  command under certain conditions. When the function returns `true`, the
-  command will be disabled.
+   _getPowerboxOptions: function () {
+       const options = this._super();
+       // (existing code before the return statement)
+       options.categories.push({
+           name: _t('Documentation'),
+           priority: 300,
+       });
+       options.commands.push({
+           name: _t('Document'),
+           category: _t('Documentation'),
+           description: _t("Add this text to your mailing's documentation"),
+           fontawesome: 'fa-book',
+           priority: 1, // This is the only command in its category anyway.
+       });
+       return options;
+   }
 
-.. note::
-    If the command points to a category that doesn't exist yet, that category
-    will be created and appended at the end of the Powerbox.
-
-Categories
-----------
-
-A category is used to group commands together. It's an object with the following
-keys:
-
-- `name`: a *string* to name the category.
-- `priority`: a *number* used to order the category. A category with a higher
-  priority is displayed higher into the Powerbox. Categories with the same
-  category are ordered alphabetically.
+The :ref:`reference <reference>` for the definition of :ref:`commands <command>`
+and :ref:`categories <category>` can be found further on this page.
 
 .. note::
-    If several categories exist with the same name, they will be grouped into
-    one. Its priority will be that defined in the version of the category that
-    was declared last.
+   Think of wrapping the names and descriptions of your commands and categories
+   in the `_t` function for translation purposes.
+
+.. note::
+   To avoid out-of-control escalations, don't use random numbers for your
+   priorities: look at what other priorities already exist and choose your value
+   accordingly (like you would do for a z-index).
+
+Opening a custom Powerbox
+-------------------------
+
+Say we want to open the Powerbox to offer a couple of options, no more, and we
+don't need all the clutter of the other commands. This is possible by manually
+calling the `open` method of the Powerbox and passing it the commands and
+categories we want.
+
+Example: opening the Powerbox with a new set of commands
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+We need the current instance of the Powerbox, which can be found in the current
+editor. In the `Wysiwyg class
+<{GITHUB_PATH}/addons/web_editor/static/src/js/wysiwyg/wysiwyg.js>`_, you will
+find it as `this.odooEditor.powerbox`.
+
+Now to open it with our custom "Document" command in a custom "Documentation"
+category:
+
+.. code-block:: javascript
+
+   this.odooEditor.powerbox.open(
+       [{
+           name: _t('Document'),
+           category: _t('Documentation'),
+           description: _t("Add this text to your mailing's documentation"),
+           fontawesome: 'fa-book',
+           priority: 1, // This is the only command in its category anyway.
+       }],
+       [{
+           name: _t('Documentation'),
+           priority: 300,
+       }]
+   );
 
 Filters
 -------
 
 There are three ways to filter commands:
 
-#. Via the `powerboxFilters` Powerbox option. It's a *function* that takes the
-   current commands and returns them filtered.
-#. Via a given command's `isDisabled` entry. It's a *function* that simply
-   returns `true` when the command should be disabled.
+#. Via the `powerboxFilters` :ref:`Powerbox option <options>`.
+#. Via a given :ref:`command <command>`'s `isDisabled` entry.
 #. The user can filter commands by simply typing text after opening the
    Powerbox. It will fuzzy-match that text with the names of the categories and
    commands.
 
-Opening the Powerbox
---------------------
+Reference
+---------
 
-Odoo Editor *opens* it whenever the user inputs the character `/` (after an
-`input` event). The editor itself then handles the removal of the character and
-optional filter characters (via hooks to the Powerbox that revert the history).
+Category
+~~~~~~~~
 
-The Powerbox can also be opened programmatically by simply calling its `open`
-method. The `open` method takes two optional arguments `commands` and
-`categories` which make it possible to replace the Powerbox instance's commands
-and categories.
+.. _category:
+
+.. list-table::
+    :widths: 20 20 60
+    :header-rows: 1
+
+    * - Name
+      - Type
+      - Description
+    * - `name`
+      - `string`
+      - the name of the category
+    * - `priority`
+      - `number`
+      - used to order the category: a category with a higher priority is
+        displayed higher into the Powerbox (categories with the same priority
+        are ordered alphabetically)
+
+.. note::
+    If several categories exist with the same name, they will be grouped into
+    one. Its priority will be that defined in the version of the category that
+    was declared last.
+
+Command
+~~~~~~~
+
+.. _command:
+
+.. list-table::
+    :widths: 20 20 60
+    :header-rows: 1
+
+    * - Name
+      - Type
+      - Description
+    * - `name`
+      - `string`
+      - the name of the command
+    * - `category`
+      - `string`
+      - the name of the category the command belongs to
+    * - `description`
+      - `string`
+      - a short text to describe the command
+    * - `fontawesome`
+      - `string`
+      - the name of a *Font Awesome* that will serve as the command's icon
+    * - `priority`
+      - `number`
+      - used to order the command: a command with a higher priority is displayed
+        higher into the Powerbox (commands with the same priority are ordered
+        alphabetically)
+    * - `callback`
+      - `function` (`() => void`)
+      - the function to execute when the command is picked (can be asynchronous)
+    * - `isDisabled` (optional)
+      - `function` (`() => void`)
+      - a function used to disable the command under certain conditions (when it
+        returns `true`, the command will be disabled)
+
+.. note::
+    If the command points to a category that doesn't exist yet, that category
+    will be created and appended at the end of the Powerbox.
+
+Options
+~~~~~~~
+
+.. _options:
+
+The following options can be passed to OdooEditor, that will then be passed to
+the instance of the Powerbox:
+
+.. list-table::
+    :widths: 20 20 60
+    :header-rows: 1
+
+    * - Name
+      - Type
+      - Description
+    * - `commands`
+      - `array of commands`
+      - commands to add to the default defined by the editor
+    * - `categories`
+      - `array of categories`
+      - categories to add to the default defined by the editor
+    * - `powerboxFilters`
+      - `array of functions` (`commands => commands`)
+      - functions used to filter commands displayed in the Powerbox
+    * - `getContextFromParentRect`
+      - `function` (`() => DOMRect`)
+      - a function that returns the `DOMRect` of an ancestor of the editor (can
+        be useful when the editor is in an iframe)
