@@ -17,6 +17,7 @@ user inputs text, and navigated with the arrow keys.
 
 .. image:: odoo_editor/powerbox.png
    :align: center
+   :alt: The Powerbox opened after typing "/".
 
 Modifying the Powerbox
 ----------------------
@@ -82,6 +83,11 @@ It is possible to open the Powerbox with a custom set of categories and
 commands, bypassing all pre-existing ones. To do that, call the `open` method of
 the Powerbox and pass it your custom commands and categories.
 
+.. image:: odoo_editor/powerbox.png
+   :align: center
+   :alt: The Powerbox opened with custom categories and commands when pasting an
+         image URL.
+
 .. example::
     We need the current instance of the Powerbox, which can be found in the
     current editor. In the `Wysiwyg class
@@ -120,6 +126,10 @@ There are three ways to filter commands:
 #. The user can filter commands by simply typing text after opening the
    Powerbox. It will fuzzy-match that text with the names of the categories and
    commands.
+
+.. image:: odoo_editor/powerbox-filtered.png
+   :align: center
+   :alt: The Powerbox with its commands filtered using the word "head".
 
 Reference
 ---------
